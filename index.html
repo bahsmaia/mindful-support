@@ -1,0 +1,711 @@
+const $ = (selector, scope = document) => scope.querySelector(selector);
+const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
+const storage = {
+  get(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } },
+  set(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+};
+
+const state = {
+  settings: storage.get('calmspace-settings', { theme:'lavender', reducedMotion:false, highContrast:false, largeText:false, cursorTrail:true }),
+  breathingTimer: null,
+  focusTimer: null,
+  focusSeconds: 300,
+  groundingStep: 0,
+  ripples: [],
+  sequence: [],
+  sequenceInput: [],
+  sequenceRound: 1,
+  sequenceLocked: true,
+  popPattern: 0
+};
+
+function initRouter() {
+  const pages = $$('.page');
+  const links = $$('[data-route]');
+  const show = () => {
+    const route = location.hash.replace('#','') || 'home';
+    const page = pages.find(p => p.dataset.page === route) || $('#home');
+    pages.forEach(p => p.classList.toggle('page--active', p === page));
+    links.forEach(a => a.setAttribute('aria-current', a.dataset.route === page.dataset.page ? 'page' : 'false'));
+    page.focus({preventScroll:true});
+    window.scrollTo({top:0, behavior: state.settings.reducedMotion ? 'auto' : 'smooth'});
+    $('.primary-nav').classList.remove('is-open');
+    $('.menu-toggle').setAttribute('aria-expanded','false');
+  };
+  window.addEventListener('hashchange', show);
+  show();
+}
+
+function initNavigation() {
+  const toggle = $('.menu-toggle');
+  const nav = $('.primary-nav');
+  toggle.addEventListener('click', () => {
+    const open = nav.classList.toggle('is-open');
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+}
+
+function applySettings() {
+  const root = document.documentElement;
+  root.dataset.theme = state.settings.theme;
+  root.dataset.reducedMotion = String(state.settings.reducedMotion);
+  root.dataset.contrast = state.settings.highContrast ? 'high' : 'normal';
+  root.dataset.largeText = String(state.settings.largeText);
+  $('#theme-select').value = state.settings.theme;
+  $('#reduce-motion').checked = state.settings.reducedMotion;
+  $('#high-contrast').checked = state.settings.highContrast;
+  $('#large-text').checked = state.settings.largeText;
+  $('#cursor-trail').checked = state.settings.cursorTrail;
+  storage.set('calmspace-settings', state.settings);
+}
+
+function initSettings() {
+  const dialog = $('#settings-dialog');
+  $('#settings-button').addEventListener('click', () => dialog.showModal());
+  $('#theme-select').addEventListener('change', e => { state.settings.theme = e.target.value; applySettings(); });
+  $('#reduce-motion').addEventListener('change', e => { state.settings.reducedMotion = e.target.checked; applySettings(); });
+  $('#high-contrast').addEventListener('change', e => { state.settings.highContrast = e.target.checked; applySettings(); });
+  $('#large-text').addEventListener('change', e => { state.settings.largeText = e.target.checked; applySettings(); });
+  $('#cursor-trail').addEventListener('change', e => { state.settings.cursorTrail = e.target.checked; applySettings(); });
+}
+
+function initAmbientCanvas() {
+  const canvas = $('#ambient-canvas');
+  const ctx = canvas.getContext('2d');
+  const particles = [];
+  let w, h, pointer = {x:-100,y:-100};
+  const resize = () => { w = canvas.width = innerWidth * devicePixelRatio; h = canvas.height = innerHeight * devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); };
+  addEventListener('resize', resize); resize();
+  addEventListener('pointermove', e => {
+    pointer = {x:e.clientX,y:e.clientY};
+    if (!state.settings.cursorTrail || state.settings.reducedMotion) return;
+    for (let i=0;i<2;i++) particles.push({x:pointer.x,y:pointer.y,vx:(Math.random()-.5)*.8,vy:(Math.random()-.5)*.8-0.15,life:1,size:12+Math.random()*20});
+  }, {passive:true});
+  function loop(){
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.life-=.018; p.size*=.994; const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size); g.addColorStop(0,`rgba(210,194,230,${p.life*.28})`); g.addColorStop(1,'rgba(210,194,230,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill(); });
+    for(let i=particles.length-1;i>=0;i--) if(particles[i].life<=0) particles.splice(i,1);
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function initBreathing() {
+  const orb = $('#breathing-orb');
+  const label = $('#breathing-label');
+  const seconds = $('#breathing-seconds');
+  const counter = $('#breathing-counter');
+  const instruction = $('#breathing-instruction');
+  const cycleText = $('#breathing-cycle');
+  const progressFill = $('#breathing-progress-fill');
+  const startButton = $('#breathing-start');
+  const pauseButton = $('#breathing-stop');
+  const resetButton = $('#breathing-reset');
+  const cards = $$('.breathing-pattern-card');
+
+  const configs = {
+    calming: {
+      name: 'Calming breathing',
+      phases: [
+        { label:'Inhale', seconds:4, action:'inhale', instruction:'Inhale gently through your nose.' },
+        { label:'Hold', seconds:7, action:'hold', instruction:'Hold your breath without straining.' },
+        { label:'Exhale', seconds:8, action:'exhale', instruction:'Exhale slowly through your mouth.' }
+      ]
+    },
+    balanced: {
+      name: 'Balanced breathing',
+      phases: [
+        { label:'Inhale', seconds:4, action:'inhale', instruction:'Inhale gently through your nose.' },
+        { label:'Exhale', seconds:4, action:'exhale', instruction:'Exhale slowly and evenly.' }
+      ]
+    },
+    box: {
+      name: 'Box breathing',
+      phases: [
+        { label:'Inhale', seconds:4, action:'inhale', instruction:'Inhale gently through your nose.' },
+        { label:'Hold', seconds:4, action:'hold', instruction:'Hold softly and keep your shoulders relaxed.' },
+        { label:'Exhale', seconds:4, action:'exhale', instruction:'Exhale slowly through your mouth.' },
+        { label:'Rest', seconds:4, action:'rest', instruction:'Rest before the next breath.' }
+      ]
+    }
+  };
+
+  let selected = 'calming';
+  let phaseIndex = 0;
+  let cycle = 1;
+  let remaining = configs[selected].phases[0].seconds;
+  let paused = false;
+  let phaseStartedAt = 0;
+  let phaseDuration = 0;
+  let animationFrame = null;
+
+  const setOrbPhase = phase => {
+    orb.classList.remove('is-inhaling','is-holding','is-exhaling','is-resting');
+    orb.style.transitionDuration = `${phase.seconds}s`;
+    const phaseClass = { inhale:'is-inhaling', hold:'is-holding', exhale:'is-exhaling', rest:'is-resting' }[phase.action];
+    requestAnimationFrame(() => orb.classList.add(phaseClass));
+  };
+
+  const renderSelection = () => {
+    cards.forEach(card => card.setAttribute('aria-checked', String(card.dataset.breathPattern === selected)));
+    const first = configs[selected].phases[0];
+    label.textContent = 'Ready';
+    seconds.textContent = first.seconds;
+    counter.textContent = `${configs[selected].name} selected.`;
+    instruction.textContent = selected === 'calming'
+      ? 'Inhale through your nose and exhale slowly through your mouth.'
+      : 'Follow the circle and keep the breath comfortable.';
+    cycleText.textContent = 'Cycle 1 of 4';
+    progressFill.style.width = '0%';
+  };
+
+  const stopTimers = () => {
+    clearInterval(state.breathingTimer);
+    state.breathingTimer = null;
+    cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+  };
+
+  const animateProgress = () => {
+    if (!state.breathingTimer || paused) return;
+    const elapsed = performance.now() - phaseStartedAt;
+    const percent = Math.min(100, (elapsed / phaseDuration) * 100);
+    progressFill.style.width = `${percent}%`;
+    animationFrame = requestAnimationFrame(animateProgress);
+  };
+
+  const beginPhase = () => {
+    const phase = configs[selected].phases[phaseIndex];
+    remaining = phase.seconds;
+    phaseDuration = phase.seconds * 1000;
+    phaseStartedAt = performance.now();
+    label.textContent = phase.label;
+    seconds.textContent = remaining;
+    counter.textContent = `${phase.label} · ${remaining} second${remaining === 1 ? '' : 's'}`;
+    instruction.textContent = phase.instruction;
+    cycleText.textContent = `Cycle ${cycle} of 4`;
+    progressFill.style.width = '0%';
+    setOrbPhase(phase);
+    cancelAnimationFrame(animationFrame);
+    animationFrame = requestAnimationFrame(animateProgress);
+  };
+
+  const completeExercise = () => {
+    stopTimers();
+    orb.className = 'breathing-orb is-complete';
+    orb.style.transitionDuration = '.7s';
+    label.textContent = 'Complete';
+    seconds.textContent = '✓';
+    counter.textContent = 'Four cycles complete. Notice how your body feels.';
+    instruction.textContent = 'Return to normal breathing whenever you are ready.';
+    cycleText.textContent = '4 of 4 cycles complete';
+    progressFill.style.width = '100%';
+    startButton.textContent = 'Start again';
+    startButton.disabled = false;
+    pauseButton.disabled = true;
+    paused = false;
+    storage.set('completed-breathing-exercises', storage.get('completed-breathing-exercises', 0) + 1);
+  };
+
+  const advancePhase = () => {
+    phaseIndex++;
+    if (phaseIndex >= configs[selected].phases.length) {
+      phaseIndex = 0;
+      cycle++;
+      if (cycle > 4) {
+        completeExercise();
+        return;
+      }
+    }
+    beginPhase();
+  };
+
+  const tick = () => {
+    remaining--;
+    if (remaining <= 0) {
+      advancePhase();
+      return;
+    }
+    seconds.textContent = remaining;
+    counter.textContent = `${configs[selected].phases[phaseIndex].label} · ${remaining} second${remaining === 1 ? '' : 's'}`;
+  };
+
+  const start = () => {
+    if (state.breathingTimer) return;
+    if (!paused) {
+      phaseIndex = 0;
+      cycle = 1;
+      beginPhase();
+    } else {
+      paused = false;
+      phaseStartedAt = performance.now() - (phaseDuration - remaining * 1000);
+      const phase = configs[selected].phases[phaseIndex];
+      setOrbPhase({...phase, seconds:remaining});
+      animationFrame = requestAnimationFrame(animateProgress);
+    }
+    state.breathingTimer = setInterval(tick, 1000);
+    startButton.disabled = true;
+    pauseButton.disabled = false;
+    pauseButton.textContent = 'Pause';
+  };
+
+  const pause = () => {
+    if (!state.breathingTimer) return;
+    stopTimers();
+    paused = true;
+    orb.classList.remove('is-inhaling','is-holding','is-exhaling','is-resting');
+    orb.classList.add('is-paused');
+    counter.textContent = `Paused during ${configs[selected].phases[phaseIndex].label.toLowerCase()}.`;
+    instruction.textContent = 'Continue whenever you feel ready.';
+    startButton.textContent = 'Continue';
+    startButton.disabled = false;
+    pauseButton.disabled = true;
+  };
+
+  const reset = () => {
+    stopTimers();
+    paused = false;
+    phaseIndex = 0;
+    cycle = 1;
+    remaining = configs[selected].phases[0].seconds;
+    orb.className = 'breathing-orb';
+    orb.style.transitionDuration = '.7s';
+    startButton.textContent = 'Start 4 cycles';
+    startButton.disabled = false;
+    pauseButton.disabled = true;
+    renderSelection();
+  };
+
+  cards.forEach(card => card.addEventListener('click', () => {
+    selected = card.dataset.breathPattern;
+    reset();
+  }));
+  startButton.addEventListener('click', start);
+  pauseButton.addEventListener('click', pause);
+  resetButton.addEventListener('click', reset);
+  renderSelection();
+}
+function initCheckIn() {
+  const buttons = $$('[data-checkin]');
+  const canvas = $('#micro-canvas');
+  const ctx = canvas.getContext('2d');
+  const garden = $('#garden-experience');
+  const cloud = $('#cloud-experience');
+  const switcher = $('#sensory-switcher');
+  const title = $('#experience-title');
+  const kicker = $('#experience-kicker');
+  const description = $('#experience-description');
+  const message = $('#experience-message');
+  let active = 'overwhelmed';
+  let gardenLevel = 0;
+  let cloudLevel = 0;
+  let sensoryMode = 'water';
+  let items = [];
+  let pointerDown = false;
+  let raf = 0;
+  let waterTime = 0;
+  let lastWaterPoint = null;
+
+  const experiences = {
+    overwhelmed:{kicker:'Tiny garden',title:'Water one small thing.',description:'Tap the watering can five times and watch a quiet garden grow.',message:'You only need to care for the next small thing.'},
+    focus:{kicker:'Collect the stars',title:'Bring your attention here.',description:'Tap five slow-moving stars. They will wait for you—there is no rush.',message:'Your attention can return one small point at a time.'},
+    sensory:{kicker:'Interactive comfort',title:'Touch the water or draw in sand.',description:'Create fluid ripples, or switch to a quiet sand garden and trace gentle paths.',message:'There is no goal. Follow the movement that feels comfortable.'},
+    rest:{kicker:'Inflate a cloud',title:'Make space for rest.',description:'Tap the cloud slowly. It grows softer and releases a gentle shower.',message:'You do not have to earn a moment of rest.'}
+  };
+
+  function resizeCanvas(){
+    const r=canvas.getBoundingClientRect();
+    canvas.width=Math.max(1,Math.floor(r.width*devicePixelRatio));
+    canvas.height=Math.max(1,Math.floor(r.height*devicePixelRatio));
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  }
+  addEventListener('resize',resizeCanvas,{passive:true});
+
+  function setExperienceMessage(text, reward=false){
+    message.textContent=text;
+    message.classList.toggle('is-reward', reward);
+  }
+
+  function reset(){
+    items=[]; gardenLevel=0; cloudLevel=0; lastWaterPoint=null;
+    $('#garden-plant').style.setProperty('--growth',0);
+    $('.cloud-shape').style.setProperty('--cloud-scale',1);
+    $('#cloud-rain').replaceChildren();
+    setExperienceMessage(experiences[active].message);
+    if(active==='focus'){
+      const r=canvas.getBoundingClientRect();
+      items=Array.from({length:5},(_,i)=>({x:r.width*(.18+i*.16),y:r.height*(.28+(i%2)*.27),vx:(i%2?-.08:.08),vy:(i%3-1)*.035,size:15,collected:false,phase:i}));
+    }
+    drawStatic();
+  }
+
+  function select(type){
+    active=type;
+    buttons.forEach(b=>b.setAttribute('aria-selected',String(b.dataset.checkin===type)));
+    const x=experiences[type]; kicker.textContent=x.kicker; title.textContent=x.title; description.textContent=x.description; setExperienceMessage(x.message);
+    garden.hidden=type!=='overwhelmed'; cloud.hidden=type!=='rest'; switcher.hidden=type!=='sensory'; canvas.hidden=type==='overwhelmed'||type==='rest';
+    reset();
+  }
+
+  function roundedStarPath(x,y,outer,inner,points=5){
+    const verts=[];
+    for(let i=0;i<points*2;i++){
+      const a=-Math.PI/2+i*Math.PI/points;
+      const r=i%2?inner:outer;
+      verts.push({x:x+Math.cos(a)*r,y:y+Math.sin(a)*r});
+    }
+    ctx.beginPath();
+    for(let i=0;i<verts.length;i++){
+      const prev=verts[(i-1+verts.length)%verts.length];
+      const cur=verts[i];
+      const next=verts[(i+1)%verts.length];
+      const p1={x:cur.x+(prev.x-cur.x)*.22,y:cur.y+(prev.y-cur.y)*.22};
+      const p2={x:cur.x+(next.x-cur.x)*.22,y:cur.y+(next.y-cur.y)*.22};
+      if(i===0)ctx.moveTo(p1.x,p1.y);else ctx.lineTo(p1.x,p1.y);
+      ctx.quadraticCurveTo(cur.x,cur.y,p2.x,p2.y);
+    }
+    ctx.closePath();
+  }
+  function drawStar(x,y,size,alpha=1,phase=0){
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    const pulse=.88+Math.sin(phase)*.09;
+    ctx.shadowColor='rgba(255,255,255,.95)';
+    ctx.shadowBlur=18+Math.sin(phase)*5;
+    const glow=ctx.createRadialGradient(x-size*.2,y-size*.35,1,x,y,size*1.25);
+    glow.addColorStop(0,'#fffef8');glow.addColorStop(.55,'#fff4c9');glow.addColorStop(1,'#f1dca3');
+    ctx.fillStyle=glow;
+    roundedStarPath(x,y,size*pulse,size*.58*pulse,5);
+    ctx.fill();
+    ctx.fillStyle='rgba(132,111,160,.62)';
+    ctx.beginPath();ctx.arc(x-size*.18,y-size*.02,1.25,0,Math.PI*2);ctx.arc(x+size*.18,y-size*.02,1.25,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(132,111,160,.48)';ctx.lineWidth=1.15;ctx.beginPath();ctx.arc(x,y+size*.12,size*.12,0,Math.PI);ctx.stroke();
+    ctx.restore();
+  }
+  function drawFocusBackground(r){
+    const g=ctx.createLinearGradient(0,0,0,r.height);g.addColorStop(0,'#111a48');g.addColorStop(.58,'#30356f');g.addColorStop(1,'#74699c');ctx.fillStyle=g;ctx.fillRect(0,0,r.width,r.height);
+    for(let i=0;i<32;i++){
+      const x=(i*83%997)/997*r.width,y=((i*47+19)%601)/601*r.height*.72;
+      const tw=.25+.45*(.5+.5*Math.sin(waterTime*.018+i));ctx.fillStyle=`rgba(255,255,255,${tw})`;ctx.fillRect(x,y,i%5===0?2:1,i%5===0?2:1);
+    }
+    ctx.save();ctx.shadowColor='rgba(255,255,255,.75)';ctx.shadowBlur=18;ctx.fillStyle='rgba(255,255,245,.9)';ctx.beginPath();ctx.arc(r.width-52,50,22,0,Math.PI*2);ctx.fill();ctx.globalCompositeOperation='destination-out';ctx.beginPath();ctx.arc(r.width-42,42,22,0,Math.PI*2);ctx.fill();ctx.restore();ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle='rgba(25,28,72,.48)';ctx.beginPath();ctx.moveTo(0,r.height);ctx.lineTo(0,r.height*.84);ctx.quadraticCurveTo(r.width*.18,r.height*.7,r.width*.35,r.height*.88);ctx.quadraticCurveTo(r.width*.58,r.height*.68,r.width*.78,r.height*.88);ctx.quadraticCurveTo(r.width*.9,r.height*.75,r.width,r.height*.82);ctx.lineTo(r.width,r.height);ctx.closePath();ctx.fill();
+  }
+  function drawWaterBackground(r){
+    waterTime+=1;
+    const g=ctx.createLinearGradient(0,0,r.width,r.height);g.addColorStop(0,'#b9edf0');g.addColorStop(.48,'#8ddfe4');g.addColorStop(1,'#b7d9f1');ctx.fillStyle=g;ctx.fillRect(0,0,r.width,r.height);
+    ctx.save();ctx.globalAlpha=.3;ctx.lineWidth=2;
+    for(let row=0;row<7;row++){
+      ctx.beginPath();
+      for(let x=-20;x<=r.width+20;x+=8){
+        const y=(row+1)*r.height/8+Math.sin(x*.025+waterTime*.035+row)*9+Math.sin(x*.055-waterTime*.02)*4;
+        x===-20?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle=row%2?'rgba(255,255,255,.82)':'rgba(73,177,192,.38)';ctx.stroke();
+    }
+    ctx.restore();
+    const shine=ctx.createRadialGradient(r.width*.28,r.height*.2,5,r.width*.28,r.height*.2,r.width*.7);shine.addColorStop(0,'rgba(255,255,255,.28)');shine.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=shine;ctx.fillRect(0,0,r.width,r.height);
+  }
+  function drawStatic(){
+    const r=canvas.getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);
+    if(active==='focus'){drawFocusBackground(r);return;}
+    if(active==='sensory'&&sensoryMode==='water'){drawWaterBackground(r);return;}
+    const g=ctx.createLinearGradient(0,0,r.width,r.height);g.addColorStop(0,'#f0e5d1');g.addColorStop(1,'#dbc5a6');ctx.fillStyle=g;ctx.fillRect(0,0,r.width,r.height);
+    ctx.globalAlpha=.16;for(let i=0;i<220;i++){ctx.fillStyle=i%2?'#9f825e':'#fff';ctx.fillRect((i*67)%Math.max(1,r.width),(i*37)%Math.max(1,r.height),1,1)}ctx.globalAlpha=1;
+  }
+  function animate(){
+    const r=canvas.getBoundingClientRect();
+    if(active==='focus'){
+      drawStatic();let left=0;
+      items.forEach((s,i)=>{if(s.collected)return;left++;s.x+=s.vx;s.y+=s.vy;s.phase+=.018;if(s.x<24||s.x>r.width-24)s.vx*=-1;if(s.y<30||s.y>r.height-45)s.vy*=-1;drawStar(s.x,s.y,s.size,1,s.phase);});
+      if(left===0 && items.length){setExperienceMessage('Every small act of care matters. Your attention is here now.',true);}
+    } else if(active==='sensory'){
+      drawStatic();
+      if(sensoryMode==='water'){
+        items.forEach(p=>{
+          p.life+=.014; p.radius+=.48; p.x+=p.vx; p.y+=p.vy; p.vx*=.985; p.vy*=.985;
+          const fade=Math.max(0,1-p.life);
+          const wobble=Math.sin(p.life*11+p.seed)*3.2;
+          const glow=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.radius*1.25);
+          glow.addColorStop(0,`rgba(255,255,255,${.12*fade})`);
+          glow.addColorStop(.48,`rgba(169,238,243,${.10*fade})`);
+          glow.addColorStop(1,'rgba(116,207,220,0)');
+          ctx.fillStyle=glow;ctx.beginPath();ctx.ellipse(p.x,p.y,p.radius*1.25,p.radius*.58,Math.sin(p.seed)*.12,0,Math.PI*2);ctx.fill();
+          for(let ring=0;ring<2;ring++){
+            const rr=Math.max(2,p.radius-ring*10+wobble*(ring?-.35:1));
+            ctx.beginPath();
+            const points=28;
+            for(let j=0;j<=points;j++){
+              const a=j/points*Math.PI*2;
+              const wave=Math.sin(a*3+p.seed+p.life*7)*2.2*fade;
+              const rx=rr+wave, ry=rr*.43+wave*.38;
+              const x=p.x+Math.cos(a)*rx, y=p.y+Math.sin(a)*ry;
+              j?ctx.lineTo(x,y):ctx.moveTo(x,y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle=`rgba(255,255,255,${(.38-ring*.12)*fade})`;
+            ctx.lineWidth=1.7-ring*.45;ctx.stroke();
+          }
+        });items=items.filter(p=>p.life<1);
+      } else {
+        ctx.lineCap='round';items.forEach(line=>{ctx.strokeStyle='rgba(160,137,108,.34)';ctx.lineWidth=10;ctx.beginPath();line.forEach((pt,i)=>i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=3;ctx.stroke();});
+      }
+    }
+    raf=requestAnimationFrame(animate);
+  }
+
+  function canvasPoint(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+  canvas.addEventListener('pointerdown',e=>{
+    pointerDown=true;canvas.setPointerCapture?.(e.pointerId);const p=canvasPoint(e);
+    if(active==='focus'){
+      const target=items.find(s=>!s.collected&&Math.hypot(s.x-p.x,s.y-p.y)<34);if(target){target.collected=true;const left=items.filter(s=>!s.collected).length;setExperienceMessage(left?`${left} gentle star${left===1?'':'s'} remaining.`:'Every small act of care matters. Your attention is here now.',!left);navigator.vibrate?.(18);}
+    } else if(active==='sensory'){
+      if(sensoryMode==='water'){items.push({x:p.x,y:p.y,radius:7,life:0,vx:0,vy:0,seed:Math.random()*9});lastWaterPoint=p;}else items.push([p]);
+    }
+  });
+  canvas.addEventListener('pointermove',e=>{if(!pointerDown||active!=='sensory')return;const p=canvasPoint(e);if(sensoryMode==='water'){const dx=lastWaterPoint?p.x-lastWaterPoint.x:0,dy=lastWaterPoint?p.y-lastWaterPoint.y:0;if(!lastWaterPoint||Math.hypot(dx,dy)>12){if(items.length<30)items.push({x:p.x,y:p.y,radius:6,life:0,vx:dx*.025,vy:dy*.025,seed:Math.random()*9});lastWaterPoint=p;}}else{const line=items[items.length-1];if(line&&line.length<180)line.push(p);}});
+  const endPointer=()=>{pointerDown=false;lastWaterPoint=null;};canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
+
+  $('#garden-water').addEventListener('click',()=>{gardenLevel=Math.min(5,gardenLevel+1);$('#garden-plant').style.setProperty('--growth',gardenLevel);setExperienceMessage(gardenLevel<5?`${5-gardenLevel} gentle watering${5-gardenLevel===1?'':'s'} to go.`:'Every small act of care matters. You made something grow today.',gardenLevel===5);navigator.vibrate?.(14);});
+  function makeRain(amount=5){
+    const rain=$('#cloud-rain');
+    for(let i=0;i<amount;i++){
+      const d=document.createElement('span');d.className='cloud-drop';d.style.left=`${12+Math.random()*76}%`;d.style.setProperty('--drift',`${-10+Math.random()*20}px`);d.style.setProperty('--drop-duration',`${1.25+Math.random()*.75}s`);d.style.animationDelay=`${Math.random()*.22}s`;rain.append(d);
+      setTimeout(()=>{const sp=document.createElement('span');sp.className='cloud-splash';sp.style.left=d.style.left;rain.append(sp);setTimeout(()=>sp.remove(),700);d.remove();},1500+Math.random()*600);
+    }
+  }
+  $('#cloud-button').addEventListener('click',()=>{cloudLevel=Math.min(8,cloudLevel+1);$('.cloud-shape').style.setProperty('--cloud-scale',1+cloudLevel*.055);makeRain(3+cloudLevel);setExperienceMessage(cloudLevel<8?'A little rain can make room for softness.':'Every small act of care matters. You are allowed to pause here.',cloudLevel===8);navigator.vibrate?.(12);});
+  $$('[data-sensory-mode]').forEach(b=>b.addEventListener('click',()=>{sensoryMode=b.dataset.sensoryMode;$$('[data-sensory-mode]').forEach(x=>x.classList.toggle('is-selected',x===b));items=[];setExperienceMessage(sensoryMode==='water'?'Touch or drag across the water.':'Drag slowly through the sand.');}));
+  $('#reset-experience').addEventListener('click',reset);
+  buttons.forEach(b=>b.addEventListener('click',()=>select(b.dataset.checkin)));
+  resizeCanvas();select('overwhelmed');cancelAnimationFrame(raf);animate();
+}
+function initGrounding() {
+  const prompts=['Name 5 things you can see.','Notice 4 things you can feel.','Listen for 3 things you can hear.','Name 2 things you can smell.','Notice 1 thing you can taste—or imagine a comforting taste.'];
+  const render=()=>{ $('#grounding-prompt').textContent=prompts[state.groundingStep]; $$('.progress-dots span').forEach((d,i)=>d.classList.toggle('active',i<=state.groundingStep)); $('#grounding-input').value=''; };
+  $('#grounding-next').addEventListener('click',()=>{ state.groundingStep=(state.groundingStep+1)%prompts.length; render(); });
+  $('#grounding-reset').addEventListener('click',()=>{ state.groundingStep=0; render(); }); render();
+}
+
+function initRippleCanvas() {
+  const canvas=$('#ripple-canvas'),ctx=canvas.getContext('2d');
+  const resize=()=>{ const r=canvas.getBoundingClientRect(); canvas.width=r.width*devicePixelRatio; canvas.height=r.height*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); }; resize(); addEventListener('resize',resize);
+  const addRipple=e=>{ const r=canvas.getBoundingClientRect(), p=e.touches?.[0]||e; state.ripples.push({x:p.clientX-r.left,y:p.clientY-r.top,r:5,a:.65,h:Math.random()*50+190}); };
+  canvas.addEventListener('pointerdown',addRipple);
+  $('#clear-ripples').addEventListener('click',()=>state.ripples=[]);
+  function draw(){ const r=canvas.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height); state.ripples.forEach(p=>{ p.r+=.55;p.a-=.004;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.strokeStyle=`hsla(${p.h},45%,72%,${p.a})`;ctx.lineWidth=8;ctx.stroke(); }); state.ripples=state.ripples.filter(p=>p.a>0); requestAnimationFrame(draw); } draw();
+}
+
+function initAnxietyTools() {
+  $('#park-thought').addEventListener('click',()=>{ const text=$('#thought-input').value.trim(); if(!text){$('#thought-status').textContent='Write a thought first.';return;} storage.set('parked-thought',{text,time:$('#thought-time').value,at:new Date().toISOString()}); $('#thought-input').value=''; $('#thought-status').textContent=`Parked. You chose to revisit it ${$('#thought-time').value.toLowerCase()}.`; });
+  let count=0; $('#pulse-counter').addEventListener('click',()=>{count++;$('#pulse-counter span').textContent=count;}); $('#reset-counter').addEventListener('click',()=>{count=0;$('#pulse-counter span').textContent='0';});
+}
+
+function initFocusTimer() {
+  const display=$('#focus-timer'); let selected=5;
+  const render=()=>{ const m=Math.floor(state.focusSeconds/60).toString().padStart(2,'0'),s=(state.focusSeconds%60).toString().padStart(2,'0');display.textContent=`${m}:${s}`; };
+  $$('.chip-row [data-minutes]').forEach(btn=>btn.addEventListener('click',()=>{selected=Number(btn.dataset.minutes);state.focusSeconds=selected*60;$$('.chip-row [data-minutes]').forEach(b=>b.classList.toggle('is-selected',b===btn));render();}));
+  $('.chip-row [data-minutes="5"]').classList.add('is-selected');
+  $('#focus-start').addEventListener('click',()=>{ if(state.focusTimer)return; if(!$('#focus-task').value.trim()) $('#focus-task').value='One small task'; state.focusTimer=setInterval(()=>{ state.focusSeconds--;render(); if(state.focusSeconds<=0){clearInterval(state.focusTimer);state.focusTimer=null;display.textContent='Done ✓';storage.set('completed-focus-sprints',(storage.get('completed-focus-sprints',0)+1));}},1000); });
+  $('#focus-reset').addEventListener('click',()=>{clearInterval(state.focusTimer);state.focusTimer=null;state.focusSeconds=selected*60;render();}); render();
+}
+
+function initMemoryGame() {
+  const symbols=['🌿','☁️','🌙','🌸','🫧','⭐']; const grid=$('#memory-grid'); let deck=[],open=[],matched=0,lock=false;
+  const setup=()=>{ deck=[...symbols,...symbols].sort(()=>Math.random()-.5);open=[];matched=0;lock=false;grid.innerHTML='';$('#memory-status').textContent='0 pairs';deck.forEach((sym,i)=>{const b=document.createElement('button');b.className='memory-card';b.setAttribute('aria-label','Hidden memory card');b.innerHTML=`<span>${sym}</span>`;b.addEventListener('click',()=>flip(b,sym,i));grid.appendChild(b);}); };
+  const flip=(b,sym,i)=>{if(lock||b.classList.contains('is-open')||b.classList.contains('is-matched'))return;b.classList.add('is-open');b.setAttribute('aria-label',sym);open.push({b,sym,i});if(open.length===2){lock=true;setTimeout(()=>{if(open[0].sym===open[1].sym){open.forEach(x=>x.b.classList.add('is-matched'));matched++;$('#memory-status').textContent=`${matched} pair${matched===1?'':'s'}`;if(matched===symbols.length)storage.set('memory-game-completed',true);}else open.forEach(x=>{x.b.classList.remove('is-open');x.b.setAttribute('aria-label','Hidden memory card');});open=[];lock=false;},650);}};
+  $('#memory-reset').addEventListener('click',setup);setup();
+}
+
+function initTinySteps() {
+  $('#generate-steps').addEventListener('click',()=>{const task=$('#big-task').value.trim();const out=$('#tiny-steps');if(!task){out.textContent='Name the task first.';return;}const steps=[`Prepare only what you need for “${task}”.`,`Work on it for just five minutes.`,`Pause and decide whether to continue, stop, or ask for help.`];out.innerHTML=steps.map((s,i)=>`<label class="tiny-step"><input type="checkbox"> <span><strong>${i+1}.</strong> ${s}</span></label>`).join('');});
+}
+
+function initSequenceGame() {
+  const pads=$$('#sequence-board button'); const status=$('#sequence-status');
+  const flash=async i=>{pads[i].classList.add('is-lit');await new Promise(r=>setTimeout(r,450));pads[i].classList.remove('is-lit');await new Promise(r=>setTimeout(r,160));};
+  const play=async()=>{state.sequenceLocked=true;status.textContent='Watch…';for(const i of state.sequence)await flash(i);state.sequenceInput=[];state.sequenceLocked=false;status.textContent='Your turn';};
+  const next=()=>{state.sequence.push(Math.floor(Math.random()*4));play();};
+  $('#sequence-start').addEventListener('click',()=>{state.sequence=[];state.sequenceRound=1;status.textContent='Round 1';next();});
+  pads.forEach((p,i)=>p.addEventListener('click',async()=>{if(state.sequenceLocked)return;await flash(i);state.sequenceInput.push(i);const pos=state.sequenceInput.length-1;if(state.sequenceInput[pos]!==state.sequence[pos]){state.sequenceLocked=true;status.textContent='That was close. Press start to try again.';return;}if(state.sequenceInput.length===state.sequence.length){state.sequenceRound++;status.textContent=`Great. Round ${state.sequenceRound}`;setTimeout(next,700);}}));
+}
+
+function initPopIt() {
+  const pop=$('#popit'); const patterns=['linear-gradient(120deg,#eadff4,#d7e7f4,#d4ebe1,#f2dfd7)','linear-gradient(120deg,#d5e8f4,#f1d6e2,#e9e1f6)','linear-gradient(120deg,#d9ecdf,#f2e4ce,#e1dcf2)'];
+  const build=()=>{pop.innerHTML='';for(let i=0;i<60;i++){const b=document.createElement('button');b.className='pop-bubble';b.setAttribute('aria-label',`Bubble ${i+1}`);b.addEventListener('click',()=>{b.classList.toggle('is-popped');b.setAttribute('aria-pressed',String(b.classList.contains('is-popped')));});pop.appendChild(b);}};
+  $('#popit-size').addEventListener('change',e=>pop.style.setProperty('--bubble',`${e.target.value}px`));
+  $('#popit-reset').addEventListener('click',()=>$$('.pop-bubble',pop).forEach(b=>b.classList.remove('is-popped')));
+  $('#popit-pattern').addEventListener('click',()=>{state.popPattern=(state.popPattern+1)%patterns.length;pop.style.background=patterns[state.popPattern];});build();
+}
+
+function initAutismTools() {
+  $('#rhythm-speed').addEventListener('input',e=>{const v=Number(e.target.value);$$('.visual-rhythm span').forEach(s=>{s.style.animationDuration=v===0?'0s':`${3.8-v*.27}s`;s.style.animationPlayState=v===0?'paused':'running';});});
+  const saved=storage.get('comfort-plan',{});$('#comfort-sign').value=saved.sign||'';$('#comfort-action').value=saved.action||'';$('#comfort-person').value=saved.person||'';
+  $('#comfort-save').addEventListener('click',()=>{storage.set('comfort-plan',{sign:$('#comfort-sign').value,action:$('#comfort-action').value,person:$('#comfort-person').value});$('#comfort-status').textContent='Your comfort plan is saved on this device.';});
+}
+
+function initFeedback() {
+  $('#feedback-form').addEventListener('submit',e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));data.rating=$('#rating').value;data.createdAt=new Date().toISOString();const all=storage.get('feedback-submissions',[]);all.push(data);storage.set('feedback-submissions',all);e.currentTarget.reset();$('#form-status').textContent='Thank you. Your feedback was saved on this device.';});
+}
+
+
+
+function initBurnoutPause() {
+  const steps = $$('[data-burnout-step]');
+  if (!steps.length) return;
+  let mode = 'grass';
+  let grassMoves = 0, sunsetProgress = 0;
+  const labels = ['Today feels manageable.','There is some pressure here.','A lot is asking for your attention.','You have been carrying too much.','This may be a moment to stop and seek support.'];
+  const modeCopy = {
+    grass:['Grass Field','Move your hand gently through the field and watch the grass follow the breeze.'],
+    sunset:['Sunset Mode','Drag the sun slowly toward the horizon and let the day soften.'],
+    leaves:['Let the Leaves Go','Release one demand at a time. There is no need to resolve it here.'],
+    lights:['Turning Off the Lights','Turn off each light and allow the demands of the day to go quiet.'],
+    sakura:['Sakura','Release a gentle breeze. Not every thought needs to be caught or held.']
+  };
+  const showStep = n => {
+    steps.forEach(el => { const on=Number(el.dataset.burnoutStep)===n; el.hidden=!on; el.classList.toggle('is-active',on); });
+    $$('[data-burnout-step-dot]').forEach(el=>el.classList.toggle('is-active',Number(el.dataset.burnoutStepDot)<=n));
+  };
+  const reward = () => { $('#burnout-reward').hidden=false; navigator.vibrate?.(10); };
+  const resetReward=()=>$('#burnout-reward').hidden=true;
+  const configureMode = () => {
+    $('#burnout-pause-title').textContent=modeCopy[mode][0];
+    $('#burnout-pause-instruction').textContent=modeCopy[mode][1];
+    $('#burnout-experience').dataset.mode=mode;
+    $$('.pause-scene').forEach(x=>x.hidden=!x.id.startsWith(mode));
+    resetReward();
+    if(mode==='leaves') buildLeaves();
+    if(mode==='lights') buildLights();
+    if(mode==='sakura') makePetals(14);
+  };
+  $('#burnout-weight').addEventListener('input',e=>$('#burnout-weight-output').textContent=labels[Number(e.target.value)-1]);
+  $$('[data-burnout-next]').forEach(b=>b.addEventListener('click',()=>{const n=Number(b.dataset.burnoutNext);if(n===3)configureMode();showStep(n);}));
+  $$('[data-burnout-back]').forEach(b=>b.addEventListener('click',()=>showStep(Number(b.dataset.burnoutBack))));
+  const pauseChoices = $$('[data-pause-mode]');
+  const beginPauseButton = $('[data-burnout-next="3"]');
+  pauseChoices.forEach(b=>b.addEventListener('click',()=>{
+    mode=b.dataset.pauseMode;
+    pauseChoices.forEach(x=>{
+      const selected=x===b;
+      x.setAttribute('aria-checked',String(selected));
+      x.classList.toggle('is-selected',selected);
+    });
+    if(beginPauseButton){
+      beginPauseButton.disabled=false;
+      beginPauseButton.textContent=`Begin ${modeCopy[mode][0]}`;
+      beginPauseButton.focus({preventScroll:true});
+    }
+  }));
+  $('#burnout-finish').addEventListener('click',()=>{storage.set('last-burnout-pause',{mode,at:new Date().toISOString()});showStep(4);});
+  $('[data-burnout-restart]').addEventListener('click',()=>{grassMoves=0;sunsetProgress=0;resetReward();showStep(1);});
+
+  const grassField=$('#grass-field');
+  const buildGrass=()=>{
+    grassField.innerHTML='';
+    const count=matchMedia('(max-width: 680px)').matches?54:82;
+    for(let i=0;i<count;i++){
+      const blade=document.createElement('i');
+      blade.style.left=`${(i/(count-1))*100}%`;
+      blade.style.height=`${44+Math.random()*72}px`;
+      blade.style.setProperty('--delay',`${Math.random()*-3}s`);
+      blade.style.setProperty('--hue',`${92+Math.random()*28}`);
+      grassField.appendChild(blade);
+    }
+  };
+  buildGrass();
+  let grassLastX=null;
+  const moveGrass=e=>{
+    const box=grassField.getBoundingClientRect();
+    const x=e.clientX-box.left;
+    const direction=grassLastX===null?0:Math.max(-1,Math.min(1,(x-grassLastX)/22));
+    grassLastX=x;
+    [...grassField.children].forEach((blade,index)=>{
+      const bx=(index/Math.max(1,grassField.children.length-1))*box.width;
+      const distance=Math.abs(bx-x);
+      const influence=Math.max(0,1-distance/150);
+      blade.style.setProperty('--bend',`${direction*26*influence}deg`);
+      blade.style.setProperty('--push',`${influence*-5}px`);
+      clearTimeout(blade._calmTimer);
+      blade._calmTimer=setTimeout(()=>{blade.style.setProperty('--bend','0deg');blade.style.setProperty('--push','0px')},420);
+    });
+    grassMoves++;
+    if(grassMoves>32) reward();
+  };
+  grassField.addEventListener('pointerdown',e=>{grassField.setPointerCapture?.(e.pointerId);moveGrass(e)});
+  grassField.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||e.buttons)moveGrass(e)});
+  grassField.addEventListener('pointerleave',()=>{grassLastX=null});
+
+  const sun=$('#sunset-sun');
+  let sunDrag=false;
+  const moveSun=e=>{if(!sunDrag)return;const box=$('#sunset-scene').getBoundingClientRect();const y=Math.max(40,Math.min(box.height*.63,e.clientY-box.top));sun.style.top=`${y}px`;sunsetProgress=y/(box.height*.63);if(sunsetProgress>.82)reward();};
+  sun.addEventListener('pointerdown',e=>{sunDrag=true;sun.setPointerCapture?.(e.pointerId)});sun.addEventListener('pointermove',moveSun);sun.addEventListener('pointerup',()=>sunDrag=false);
+
+  function buildLeaves(){const host=$('#burnout-leaves');host.innerHTML='';['Emails','Deadlines','Expectations','Meetings','Tomorrow','Pressure'].forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.addEventListener('click',()=>{b.classList.add('is-gone');setTimeout(()=>b.remove(),1050);setTimeout(()=>{if(!host.querySelector('button:not(.is-gone)'))reward()},1100)});host.appendChild(b)});}
+  function buildLights(){const host=$('#light-windows');host.innerHTML='';for(let i=0;i<15;i++){const b=document.createElement('button');b.type='button';b.setAttribute('aria-label',`Turn off light ${i+1}`);b.addEventListener('click',()=>{b.classList.add('is-off');if([...host.children].every(x=>x.classList.contains('is-off')))reward()});host.appendChild(b)}}
+  const sakuraHost=$('#sakura-petals');
+  let petals=[], sakuraFrame=0, sakuraPointer=null, sakuraMoves=0, lastPetalSpawn=0;
+  const addPetal=(x=Math.random(),y=-.08)=>{
+    if(petals.length>=34)return;
+    const el=document.createElement('i');
+    sakuraHost.appendChild(el);
+    petals.push({el,x,y,vx:(Math.random()-.5)*.0018,vy:.0007+Math.random()*.001,rot:Math.random()*360,vr:(Math.random()-.5)*.12,size:10+Math.random()*10});
+  };
+  const makePetals=(count=12)=>{petals.forEach(p=>p.el.remove());petals=[];for(let i=0;i<count;i++)addPetal(Math.random(),Math.random()*.85);startSakura()};
+  const startSakura=()=>{if(!sakuraFrame)sakuraFrame=requestAnimationFrame(updateSakura)};
+  const updateSakura=()=>{
+    const box=sakuraHost.getBoundingClientRect();
+    petals.forEach(p=>{
+      if(sakuraPointer){
+        const dx=p.x-sakuraPointer.x,dy=p.y-sakuraPointer.y,d=Math.hypot(dx,dy);
+        if(d<.24){const force=(.24-d)*.00055;p.vx+=(dx/(d||1))*force+sakuraPointer.vx*.000035;p.vy+=(dy/(d||1))*force+sakuraPointer.vy*.000018;}
+      }
+      p.vx*=.992;p.vy=Math.min(.0023,p.vy+.000004);p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;
+      if(p.y>1.08||p.x<-.12||p.x>1.12){p.x=Math.random();p.y=-.08;p.vx=(Math.random()-.5)*.0018;p.vy=.0007+Math.random()*.001;}
+      p.el.style.width=`${p.size}px`;p.el.style.height=`${p.size*1.25}px`;p.el.style.transform=`translate3d(${p.x*box.width}px,${p.y*box.height}px,0) rotate(${p.rot}deg)`;
+    });
+    sakuraPointer=null;
+    sakuraFrame=requestAnimationFrame(updateSakura);
+  };
+  let lastSakuraPoint=null;
+  const guidePetals=e=>{
+    const box=sakuraHost.getBoundingClientRect(),now=performance.now();
+    const x=(e.clientX-box.left)/box.width,y=(e.clientY-box.top)/box.height;
+    const vx=lastSakuraPoint?e.clientX-lastSakuraPoint.x:0,vy=lastSakuraPoint?e.clientY-lastSakuraPoint.y:0;
+    sakuraPointer={x,y,vx,vy};lastSakuraPoint={x:e.clientX,y:e.clientY};sakuraMoves++;
+    if(now-lastPetalSpawn>90){addPetal(x,y);lastPetalSpawn=now}
+    if(sakuraMoves>28)reward();
+  };
+  sakuraHost.addEventListener('pointerdown',e=>{sakuraHost.setPointerCapture?.(e.pointerId);guidePetals(e)});
+  sakuraHost.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||e.buttons)guidePetals(e)});
+  sakuraHost.addEventListener('pointerleave',()=>{lastSakuraPoint=null});
+  showStep(1);
+}
+
+function initServiceWorker(){ if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
+
+function safeInit(name, fn){
+  try { fn(); }
+  catch (error) { console.error(`[CalmSpace] ${name} could not start:`, error); }
+}
+
+safeInit('settings', applySettings);
+safeInit('router', initRouter);
+safeInit('navigation', initNavigation);
+safeInit('settings controls', initSettings);
+safeInit('ambient canvas', initAmbientCanvas);
+safeInit('breathing', initBreathing);
+safeInit('check-in', initCheckIn);
+safeInit('grounding', initGrounding);
+safeInit('ripple canvas', initRippleCanvas);
+safeInit('anxiety tools', initAnxietyTools);
+safeInit('focus timer', initFocusTimer);
+safeInit('memory game', initMemoryGame);
+safeInit('tiny steps', initTinySteps);
+safeInit('sequence game', initSequenceGame);
+safeInit('pop-it', initPopIt);
+safeInit('autism tools', initAutismTools);
+safeInit('feedback', initFeedback);
+safeInit('burnout pause', initBurnoutPause);
+safeInit('service worker', initServiceWorker);
+const year=$('#year'); if(year) year.textContent=new Date().getFullYear();
