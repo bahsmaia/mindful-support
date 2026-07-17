@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f4eef8" />
+  <meta name="description" content="A gentle, accessible mental wellness companion with breathing, focus, sensory and burnout-prevention exercises." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <title>CalmSpace — Gentle Mental Wellness Support</title>
+</head>
+<body>
+  <canvas id="ambient-canvas" aria-hidden="true"></canvas>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <header class="site-header">
+    <a class="brand" href="#home" aria-label="CalmSpace home">
+      <span class="brand-mark" aria-hidden="true">◌</span>
+      <span>CalmSpace</span>
+    </a>
+
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">
+      <span></span><span></span><span></span>
+      <span class="sr-only">Open navigation</span>
+    </button>
+
+    <nav id="primary-nav" class="primary-nav" aria-label="Main navigation">
+      <a href="#home" data-route="home">Home</a>
+      <a href="#anxiety" data-route="anxiety">Anxiety</a>
+      <a href="#adhd" data-route="adhd">ADHD</a>
+      <a href="#autism" data-route="autism">Autism</a>
+      <a href="#contact" data-route="contact">Contact</a>
+    </nav>
+
+    <button id="settings-button" class="icon-button" type="button" aria-haspopup="dialog" aria-controls="settings-dialog" title="Accessibility settings">⚙</button>
+  </header>
+
+  <main id="main-content">
+    <section id="home" class="page page--active" data-page="home" tabindex="-1">
+      <div class="hero shell">
+        <div class="hero-copy">
+          <p class="eyebrow">A quiet place to pause</p>
+          <h1>Small exercises for steadier moments.</h1>
+          <p class="lead">CalmSpace offers gentle breathing guidance, focus activities, sensory tools, and burnout-prevention prompts. Use what feels helpful and leave the rest.</p>
+          <div class="button-row">
+            <a class="button button--primary" href="#breathing">Start a breathing exercise</a>
+            <a class="button button--ghost" href="#check-in">Do a quick check-in</a>
+          </div>
+          <p class="microcopy">This website is a supportive self-care tool, not a substitute for professional care or emergency services.</p>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <svg viewBox="0 0 520 420" role="img">
+            <defs>
+              <linearGradient id="softGradient" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0" stop-color="#e5d8f3"/>
+                <stop offset="1" stop-color="#cce7df"/>
+              </linearGradient>
+              <filter id="blur"><feGaussianBlur stdDeviation="18"/></filter>
+            </defs>
+            <circle cx="140" cy="120" r="90" fill="#f5d8df" opacity=".7" filter="url(#blur)"/>
+            <circle cx="380" cy="120" r="110" fill="#d8e7fa" opacity=".7" filter="url(#blur)"/>
+            <path d="M91 271 C174 166, 353 160, 430 273 C363 373, 163 372, 91 271Z" fill="url(#softGradient)"/>
+            <circle cx="260" cy="255" r="56" fill="#fff" opacity=".9"/>
+            <path d="M240 257 C252 273, 270 273, 282 257" fill="none" stroke="#756b7d" stroke-width="7" stroke-linecap="round"/>
+            <circle cx="240" cy="238" r="5" fill="#756b7d"/>
+            <circle cx="280" cy="238" r="5" fill="#756b7d"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="shell feature-grid" aria-label="Main support areas">
+        <article class="feature-card">
+          <span class="feature-icon" aria-hidden="true">↟</span>
+          <h2>Regulate your breathing</h2>
+          <p>Follow a calm visual rhythm with adjustable timing and reduced-motion support.</p>
+          <a href="#breathing">Open breathing tool →</a>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon" aria-hidden="true">✦</span>
+          <h2>Refocus gently</h2>
+          <p>Try low-pressure memory games, task breakdowns, and focus sprints designed with ADHD in mind.</p>
+          <a href="#adhd">Explore focus tools →</a>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon" aria-hidden="true">◉</span>
+          <h2>Find sensory comfort</h2>
+          <p>Use a customizable pop-it, visual patterns, and predictable interactions without sudden sound.</p>
+          <a href="#autism">Open sensory space →</a>
+        </article>
+      </div>
+
+      <section id="breathing" class="section shell breathing-section">
+        <header class="breathing-intro">
+          <div>
+            <p class="eyebrow">Breathing exercises</p>
+            <h2>Choose the rhythm your body needs.</h2>
+          </div>
+          <p>Each technique has a different purpose and its own timing. Select one, press start, and follow the expanding and contracting circle for four complete cycles.</p>
+        </header>
+
+        <div class="breathing-layout">
+          <div class="breathing-patterns" role="radiogroup" aria-label="Choose a breathing exercise">
+            <button class="breathing-pattern-card" type="button" role="radio" aria-checked="true" data-breath-pattern="calming">
+              <span class="pattern-card-top"><strong>Calming</strong><span>4–7–8</span></span>
+              <span>Inhale for 4, hold for 7, and exhale slowly for 8 seconds.</span>
+              <small>Best for slowing down and preparing for rest.</small>
+            </button>
+            <button class="breathing-pattern-card" type="button" role="radio" aria-checked="false" data-breath-pattern="balanced">
+              <span class="pattern-card-top"><strong>Balanced</strong><span>4–4</span></span>
+              <span>Inhale for 4 seconds, then exhale for 4 seconds.</span>
+              <small>A simple, even rhythm for a quick reset.</small>
+            </button>
+            <button class="breathing-pattern-card" type="button" role="radio" aria-checked="false" data-breath-pattern="box">
+              <span class="pattern-card-top"><strong>Box breathing</strong><span>4–4–4–4</span></span>
+              <span>Inhale, hold, exhale, and rest for 4 seconds each.</span>
+              <small>A structured pattern for focus and grounding.</small>
+            </button>
+          </div>
+
+          <div class="breathing-stage" aria-live="polite">
+            <div class="breathing-cycle" id="breathing-cycle">Cycle 1 of 4</div>
+            <div id="breathing-orb" class="breathing-orb">
+              <span id="breathing-label">Ready</span>
+              <strong id="breathing-seconds" aria-hidden="true">4</strong>
+            </div>
+            <div class="breathing-status">
+              <p id="breathing-counter">Calming breathing selected.</p>
+              <div class="breathing-progress" aria-hidden="true"><span id="breathing-progress-fill"></span></div>
+              <p id="breathing-instruction" class="microcopy">Inhale through your nose and exhale slowly through your mouth.</p>
+            </div>
+            <div class="button-row breathing-actions">
+              <button id="breathing-start" class="button button--primary" type="button">Start 4 cycles</button>
+              <button id="breathing-stop" class="button button--ghost" type="button" disabled>Pause</button>
+              <button id="breathing-reset" class="text-button" type="button">Reset</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="check-in" class="section shell check-in-panel">
+        <div class="check-in-heading">
+          <div>
+            <p class="eyebrow">One-minute check-in</p>
+            <h2>What do you need most right now?</h2>
+          </div>
+          <p>Choose one. A small, peaceful activity will open below—no score, no pressure, and no wrong way to use it.</p>
+        </div>
+
+        <div class="check-in-options" role="tablist" aria-label="Choose a gentle activity">
+          <button type="button" role="tab" aria-selected="true" aria-controls="check-in-experience" data-checkin="overwhelmed"><span aria-hidden="true">🌱</span> Less overwhelm</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="check-in-experience" data-checkin="focus"><span aria-hidden="true">✦</span> More focus</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="check-in-experience" data-checkin="sensory"><span aria-hidden="true">◌</span> Sensory comfort</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="check-in-experience" data-checkin="rest"><span aria-hidden="true">☁</span> Permission to rest</button>
+        </div>
+
+        <div id="check-in-experience" class="check-in-experience" role="tabpanel" aria-live="polite">
+          <div class="experience-copy">
+            <p id="experience-kicker" class="eyebrow">Tiny garden</p>
+            <h3 id="experience-title">Water one small thing.</h3>
+            <p id="experience-description">Tap the watering can five times and watch a quiet garden grow.</p>
+            <p id="experience-message" class="experience-message">You only need to care for the next small thing.</p>
+          </div>
+
+          <div class="experience-stage" id="experience-stage">
+            <canvas id="micro-canvas" aria-label="Interactive wellness activity"></canvas>
+            <div id="garden-experience" class="garden-experience" aria-label="Tiny garden activity">
+              <div class="garden-sky" aria-hidden="true"><span></span><span></span></div>
+              <div id="garden-plant" class="garden-plant" aria-hidden="true">
+                <span class="stem"></span><span class="leaf leaf--one"></span><span class="leaf leaf--two"></span><span class="flower">✿</span>
+              </div>
+              <div class="garden-soil" aria-hidden="true"></div>
+              <button id="garden-water" class="experience-action" type="button"><span aria-hidden="true">💧</span> Water gently</button>
+            </div>
+            <div id="cloud-experience" class="cloud-experience" hidden>
+              <div id="cloud-rain" class="cloud-rain" aria-hidden="true"></div>
+              <button id="cloud-button" class="cloud-button" type="button" aria-label="Tap to gently inflate the cloud and make soft rain">
+                <span class="cloud-shape" aria-hidden="true"><i></i><i></i><i></i><i></i><b class="cloud-face"><span></span><span></span><em></em></b></span>
+              </button>
+              <p>Tap the cloud and let a little rain fall.</p>
+            </div>
+            <div id="sensory-switcher" class="sensory-switcher" hidden>
+              <button type="button" class="is-selected" data-sensory-mode="water">Water</button>
+              <button type="button" data-sensory-mode="sand">Sand garden</button>
+            </div>
+            <button id="reset-experience" class="text-button experience-reset" type="button">Begin again</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="burnout-pause" class="section shell burnout-section burnout-journey">
+        <header class="burnout-intro">
+          <div>
+            <p class="eyebrow">Burnout pause moments</p>
+            <h2>Stop for a moment. Nothing needs your answer right now.</h2>
+          </div>
+          <p>Burnout can be connected to prolonged workload, exhausting hours, low control, and a lack of recognition. This gentle pause is designed to help you disconnect briefly—not to add another task to your day.</p>
+        </header>
+
+        <div class="burnout-steps" aria-label="Pause journey progress">
+          <span class="is-active" data-burnout-step-dot="1"><b>1</b> Arrive</span>
+          <span data-burnout-step-dot="2"><b>2</b> Choose</span>
+          <span data-burnout-step-dot="3"><b>3</b> Pause</span>
+          <span data-burnout-step-dot="4"><b>4</b> Return gently</span>
+        </div>
+
+        <div class="burnout-shell">
+          <section class="burnout-step is-active" data-burnout-step="1" aria-labelledby="burnout-arrive-title">
+            <div class="burnout-step-copy">
+              <p class="eyebrow">Step 1 · Arrive</p>
+              <h3 id="burnout-arrive-title">How heavy does today feel?</h3>
+              <p>No score, no judgment. Move the slider only if it feels helpful.</p>
+            </div>
+            <div class="burnout-weight">
+              <input id="burnout-weight" type="range" min="1" max="5" value="3" aria-label="How heavy today feels, from light to very heavy" />
+              <div class="burnout-weight-labels" aria-hidden="true"><span>Light</span><span>Heavy</span></div>
+              <output id="burnout-weight-output">A lot is asking for your attention.</output>
+            </div>
+            <button class="button button--primary" type="button" data-burnout-next="2">Let’s pause together</button>
+          </section>
+
+          <section class="burnout-step" data-burnout-step="2" aria-labelledby="burnout-choose-title" hidden>
+            <div class="burnout-step-copy">
+              <p class="eyebrow">Step 2 · Choose</p>
+              <h3 id="burnout-choose-title">What kind of pause feels right?</h3>
+              <p>Choose one quiet experience. You can change it at any time.</p>
+            </div>
+            <div class="pause-choice-grid" role="radiogroup" aria-label="Choose a burnout pause moment">
+              <button type="button" role="radio" aria-checked="true" data-pause-mode="grass"><span>🌾</span><strong>Grass Field</strong><small>Move through the grass and let the wind carry the pressure.</small></button>
+              <button type="button" role="radio" aria-checked="false" data-pause-mode="sunset"><span>◐</span><strong>Sunset Mode</strong><small>Let the day soften without fixing it.</small></button>
+              <button type="button" role="radio" aria-checked="false" data-pause-mode="leaves"><span>🍃</span><strong>Let the Leaves Go</strong><small>Release one demand at a time.</small></button>
+              <button type="button" role="radio" aria-checked="false" data-pause-mode="lights"><span>▦</span><strong>Turning Off the Lights</strong><small>Disconnect from what is calling you.</small></button>
+              <button type="button" role="radio" aria-checked="false" data-pause-mode="sakura"><span>🌸</span><strong>Sakura</strong><small>Notice what can pass without being held.</small></button>
+            </div>
+            <div class="button-row">
+              <button class="button button--ghost" type="button" data-burnout-back="1">Back</button>
+              <button class="button button--primary" type="button" data-burnout-next="3">Begin this pause</button>
+            </div>
+          </section>
+
+          <section class="burnout-step" data-burnout-step="3" aria-labelledby="burnout-pause-title" hidden>
+            <div class="burnout-step-copy burnout-experience-heading">
+              <div><p class="eyebrow">Step 3 · Pause</p><h3 id="burnout-pause-title">Grass Field</h3></div>
+              <p id="burnout-pause-instruction">Move your hand gently through the field and watch the grass follow the breeze.</p>
+            </div>
+
+            <div id="burnout-experience" class="burnout-experience" data-mode="grass" aria-live="polite">
+              <canvas id="burnout-canvas" aria-label="Interactive burnout pause experience"></canvas>
+              <div id="grass-scene" class="pause-scene grass-scene">
+                <div class="grass-sky" aria-hidden="true"><i></i><i></i><i></i></div>
+                <div id="grass-field" class="grass-field" role="application" aria-label="Interactive field of grass. Move your pointer or finger through it."></div>
+                <div class="grass-sun" aria-hidden="true"></div>
+                <p>Move slowly across the field. There is nowhere you need to arrive.</p>
+              </div>
+              <div id="sunset-scene" class="pause-scene sunset-scene" hidden>
+                <div class="sunset-sky"><span class="sunset-sun" id="sunset-sun"></span><i></i><i></i><i></i></div>
+                <div class="sunset-horizon"></div>
+                <p>Drag the sun gently toward the horizon.</p>
+              </div>
+              <div id="leaves-scene" class="pause-scene leaves-scene" hidden>
+                <div class="leaf-breeze" aria-hidden="true"></div>
+                <div id="burnout-leaves" class="burnout-leaves"></div>
+                <p>Tap a leaf when you are ready to let that demand drift away.</p>
+              </div>
+              <div id="lights-scene" class="pause-scene lights-scene" hidden>
+                <div class="night-moon" aria-hidden="true"></div>
+                <div id="light-windows" class="light-windows"></div>
+                <p>Turn off each light. The world can wait for one minute.</p>
+              </div>
+              <div id="sakura-scene" class="pause-scene sakura-scene" hidden>
+                <div id="sakura-petals" class="sakura-petals" aria-hidden="true"></div>
+                <div class="sakura-hint" aria-hidden="true">Move gently to guide the petals</div>
+                <p>Let the petals follow you, then allow them to drift away.</p>
+              </div>
+            </div>
+
+            <div id="burnout-reward" class="burnout-reward" hidden>
+              <span aria-hidden="true">✦</span>
+              <div><strong>You made space for yourself.</strong><p>Every small act of care matters.</p></div>
+            </div>
+            <div class="button-row burnout-pause-actions">
+              <button class="button button--ghost" type="button" data-burnout-back="2">Choose another</button>
+              <button id="burnout-finish" class="button button--primary" type="button">Finish this pause</button>
+            </div>
+          </section>
+
+          <section class="burnout-step" data-burnout-step="4" aria-labelledby="burnout-return-title" hidden>
+            <div class="burnout-complete-mark" aria-hidden="true">✓</div>
+            <div class="burnout-step-copy burnout-final-copy">
+              <p class="eyebrow">Step 4 · Return gently</p>
+              <h3 id="burnout-return-title">You do not have to return at full speed.</h3>
+              <p>Take one sip of water, loosen your shoulders, or look away from the screen before deciding what comes next.</p>
+            </div>
+            <blockquote>“Every small act of care matters.”</blockquote>
+            <aside class="professional-help-note">
+              <h4>Please seek professional support when needed</h4>
+              <p>If exhaustion, detachment, sleep disruption, anxiety, hopelessness, or reduced ability to function persist or worsen, contact a qualified mental health or healthcare professional. This website offers supportive self-care tools, but it cannot diagnose or replace professional care.</p>
+            </aside>
+            <div class="button-row">
+              <button class="button button--ghost" type="button" data-burnout-restart>Take another pause</button>
+              <a class="button button--primary" href="#contact">Share feedback</a>
+            </div>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <section id="anxiety" class="page" data-page="anxiety" tabindex="-1">
+      <header class="page-header shell">
+        <p class="eyebrow">Anxiety support</p>
+        <h1>Bring your attention back to the present.</h1>
+        <p class="lead">Pick one light, low-pressure activity. There is no score to beat and no correct way to feel afterward.</p>
+      </header>
+
+      <div class="shell activity-grid">
+        <article class="activity-card activity-card--wide">
+          <div>
+            <h2>5–4–3–2–1 grounding</h2>
+            <p>Move through your senses one step at a time.</p>
+          </div>
+          <div id="grounding-tool" class="grounding-tool">
+            <p id="grounding-prompt">Name 5 things you can see.</p>
+            <div class="progress-dots" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+            <textarea id="grounding-input" rows="4" placeholder="Type here, or simply notice them silently..."></textarea>
+            <div class="button-row">
+              <button id="grounding-next" class="button button--primary" type="button">Next sense</button>
+              <button id="grounding-reset" class="button button--ghost" type="button">Reset</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="activity-card">
+          <h2>Color drift</h2>
+          <p>Tap the canvas to create slow-moving pastel ripples.</p>
+          <canvas id="ripple-canvas" width="500" height="320" aria-label="Interactive calming ripple canvas"></canvas>
+          <button id="clear-ripples" class="text-button" type="button">Clear canvas</button>
+        </article>
+
+        <article class="activity-card">
+          <h2>Thought parking</h2>
+          <p>Write down the thought, then choose when to revisit it.</p>
+          <label for="thought-input">What is taking up space?</label>
+          <textarea id="thought-input" rows="4" placeholder="I keep thinking about..."></textarea>
+          <label for="thought-time">Revisit later</label>
+          <select id="thought-time"><option>In 30 minutes</option><option>Tonight</option><option>Tomorrow</option><option>This week</option></select>
+          <button id="park-thought" class="button button--primary" type="button">Park this thought</button>
+          <p id="thought-status" class="status-text" aria-live="polite"></p>
+        </article>
+
+        <article class="activity-card">
+          <h2>Gentle counting</h2>
+          <p>Count each soft pulse. Reset whenever your attention wanders.</p>
+          <button id="pulse-counter" class="pulse-counter" type="button"><span>0</span><small>tap with each pulse</small></button>
+          <button id="reset-counter" class="text-button" type="button">Reset count</button>
+        </article>
+      </div>
+    </section>
+
+    <section id="adhd" class="page" data-page="adhd" tabindex="-1">
+      <header class="page-header shell">
+        <p class="eyebrow">ADHD-friendly tools</p>
+        <h1>Make the next step visible and small.</h1>
+        <p class="lead">Use short timers, visual structure, and playful memory practice without penalties.</p>
+      </header>
+
+      <div class="shell activity-grid">
+        <article class="activity-card">
+          <h2>Focus sprint</h2>
+          <p>Pick a short duration and work on one clearly named task.</p>
+          <label for="focus-task">One task</label>
+          <input id="focus-task" type="text" placeholder="Example: reply to one email" />
+          <div class="chip-row" role="group" aria-label="Focus sprint duration">
+            <button type="button" data-minutes="5">5 min</button>
+            <button type="button" data-minutes="10">10 min</button>
+            <button type="button" data-minutes="15">15 min</button>
+          </div>
+          <div id="focus-timer" class="timer-display">05:00</div>
+          <div class="button-row">
+            <button id="focus-start" class="button button--primary" type="button">Start sprint</button>
+            <button id="focus-reset" class="button button--ghost" type="button">Reset</button>
+          </div>
+        </article>
+
+        <article class="activity-card activity-card--wide">
+          <div class="card-heading-row">
+            <div><h2>Memory garden</h2><p>Match the pairs. Take your time.</p></div>
+            <p id="memory-status" class="status-badge">0 pairs</p>
+          </div>
+          <div id="memory-grid" class="memory-grid" aria-label="Memory matching game"></div>
+          <button id="memory-reset" class="text-button" type="button">Shuffle and restart</button>
+        </article>
+
+        <article class="activity-card">
+          <h2>Break it down</h2>
+          <p>Turn a heavy task into three tiny actions.</p>
+          <label for="big-task">The task</label>
+          <input id="big-task" type="text" placeholder="Example: clean the kitchen" />
+          <button id="generate-steps" class="button button--primary" type="button">Create tiny steps</button>
+          <div id="tiny-steps" class="tiny-steps" aria-live="polite"></div>
+        </article>
+
+        <article class="activity-card">
+          <h2>Working-memory sequence</h2>
+          <p>Watch the lights, then repeat the sequence.</p>
+          <div id="sequence-board" class="sequence-board">
+            <button data-seq="0" aria-label="Lavender pad"></button>
+            <button data-seq="1" aria-label="Blue pad"></button>
+            <button data-seq="2" aria-label="Mint pad"></button>
+            <button data-seq="3" aria-label="Peach pad"></button>
+          </div>
+          <button id="sequence-start" class="button button--primary" type="button">Start sequence</button>
+          <p id="sequence-status" class="status-text" aria-live="polite">Round 1</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="autism" class="page" data-page="autism" tabindex="-1">
+      <header class="page-header shell">
+        <p class="eyebrow">Sensory and predictable interactions</p>
+        <h1>A customizable space with no surprise sounds.</h1>
+        <p class="lead">Choose the visual intensity that feels comfortable. All sound is off by default.</p>
+      </header>
+
+      <div class="shell activity-grid">
+        <article class="activity-card activity-card--wide">
+          <div class="card-heading-row">
+            <div><h2>Virtual pop-it</h2><p>Press each bubble. Reset whenever you want.</p></div>
+            <div class="inline-control"><label for="popit-size">Size</label><select id="popit-size"><option value="24">Small</option><option value="36" selected>Medium</option><option value="48">Large</option></select></div>
+          </div>
+          <div id="popit" class="popit" aria-label="Interactive virtual pop-it"></div>
+          <div class="button-row"><button id="popit-reset" class="button button--ghost" type="button">Reset bubbles</button><button id="popit-pattern" class="button button--ghost" type="button">Change pattern</button></div>
+        </article>
+
+        <article class="activity-card">
+          <h2>Visual rhythm</h2>
+          <p>Adjust the speed until the movement feels comfortable.</p>
+          <div class="visual-rhythm" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+          <label for="rhythm-speed">Movement speed</label>
+          <input id="rhythm-speed" type="range" min="0" max="10" value="4" />
+        </article>
+
+        <article class="activity-card">
+          <h2>Comfort planner</h2>
+          <p>Save a short personal plan for overstimulating moments.</p>
+          <label for="comfort-sign">My early sign</label>
+          <input id="comfort-sign" type="text" placeholder="Example: sounds feel sharper" />
+          <label for="comfort-action">A helpful action</label>
+          <input id="comfort-action" type="text" placeholder="Example: use headphones" />
+          <label for="comfort-person">A safe person or place</label>
+          <input id="comfort-person" type="text" placeholder="Example: quiet room" />
+          <button id="comfort-save" class="button button--primary" type="button">Save my plan</button>
+          <p id="comfort-status" class="status-text" aria-live="polite"></p>
+        </article>
+      </div>
+    </section>
+
+    <section id="contact" class="page" data-page="contact" tabindex="-1">
+      <header class="page-header shell">
+        <p class="eyebrow">Help improve CalmSpace</p>
+        <h1>Share what worked and what could feel better.</h1>
+        <p class="lead">This demo stores submissions locally in your browser. Connect the form to your preferred backend or form service for production.</p>
+      </header>
+
+      <div class="shell contact-layout">
+        <form id="feedback-form" class="feedback-form">
+          <div class="form-grid">
+            <div><label for="name">Name <span>(optional)</span></label><input id="name" name="name" type="text" autocomplete="name" /></div>
+            <div><label for="email">Email <span>(optional)</span></label><input id="email" name="email" type="email" autocomplete="email" /></div>
+          </div>
+          <label for="feedback-type">Feedback area</label>
+          <select id="feedback-type" name="type"><option>General experience</option><option>Accessibility</option><option>Performance</option><option>Exercise suggestion</option><option>Bug report</option></select>
+          <label for="rating">How easy was the site to use?</label>
+          <input id="rating" name="rating" type="range" min="1" max="5" value="4" />
+          <label for="message">Your feedback</label>
+          <textarea id="message" name="message" rows="7" required placeholder="Please tell us what happened, which page you were using, and what you would improve..."></textarea>
+          <label class="checkbox-row"><input id="consent" type="checkbox" required /> <span>I understand this demo saves feedback only on this device.</span></label>
+          <button class="button button--primary" type="submit">Save feedback</button>
+          <p id="form-status" class="status-text" aria-live="polite"></p>
+        </form>
+        <aside class="support-note">
+          <h2>Need immediate help?</h2>
+          <p>If you may be in immediate danger or thinking about harming yourself, contact local emergency services or a crisis support service in your country now.</p>
+          <p>For ongoing support, consider speaking with a licensed mental health professional who can understand your circumstances.</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="settings-dialog" class="settings-dialog">
+    <form method="dialog">
+      <div class="dialog-heading"><h2>Comfort settings</h2><button value="close" class="icon-button" aria-label="Close settings">×</button></div>
+      <label class="switch-row"><span>Reduce motion</span><input id="reduce-motion" type="checkbox" role="switch" /></label>
+      <label class="switch-row"><span>High contrast</span><input id="high-contrast" type="checkbox" role="switch" /></label>
+      <label class="switch-row"><span>Large text</span><input id="large-text" type="checkbox" role="switch" /></label>
+      <label class="switch-row"><span>Soft cursor orb</span><input id="cursor-trail" type="checkbox" role="switch" checked /></label>
+      <label for="theme-select">Color theme</label>
+      <select id="theme-select"><option value="lavender">Lavender mist</option><option value="mint">Mint calm</option><option value="peach">Warm peach</option></select>
+      <button value="close" class="button button--primary">Done</button>
+    </form>
+  </dialog>
+
+  <footer class="site-footer shell">
+    <p>CalmSpace © <span id="year"></span></p>
+    <p>Designed for calm, clarity, and accessibility.</p>
+  </footer>
+
+  <script src="assets/js/app.js" defer></script>
+</body>
+</html>
